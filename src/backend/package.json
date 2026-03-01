@@ -1,0 +1,11 @@
+{
+  "name": "devops-foundations-backend",
+  "version": "1.0.0",
+  "description": "Backend API for DevOps Foundations project",
+  "main": "src/index.js",
+  "scripts": {
+    "start": "node src/index.js"
+  },
+  "author": "Herve Beziat",
+  "license": "MIT"
+}
