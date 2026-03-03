@@ -15,6 +15,7 @@ const PORT = process.env.PORT || 3000;
 const healthRouter = require('./routes/health');
 const rootRouter = require('./routes/root');
 const dbRouteur = require('./routes/db');
+const cacheRouteur = require('./routes/cache');
 
 // Montage des routes :
 // ici, toutes les routes définies dans health.js seront accessibles sous /health
@@ -24,6 +25,8 @@ app.use('/health', healthRouter);
 app.use('/', rootRouter);
 // Monter la route de test de la base de données
 app.use('/db', dbRouteur);
+// Monter la route de test du cache
+app.use('/cache', cacheRouteur);
 
 // Démarrage du serveur
 // Le serveur écoute les requêtes HTTP sur le port défini
