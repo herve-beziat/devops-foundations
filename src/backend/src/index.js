@@ -6,6 +6,9 @@ const express = require('express');
 // "app" représente notre serveur HTTP
 const app = express();
 
+// Obligatoire pour lire req.body en JSON
+app.use(express.json()); 
+
 // Définition du port d'écoute
 // Si une variable d'environnement PORT est définie (ex: en Docker),
 // on l'utilise. Sinon on prend 3000 par défaut.
@@ -16,6 +19,7 @@ const healthRouter = require('./routes/health');
 const rootRouter = require('./routes/root');
 const dbRouteur = require('./routes/db');
 const cacheRouteur = require('./routes/cache');
+const contactRouter = require('./routes/contact');
 
 // Montage des routes :
 // ici, toutes les routes définies dans health.js seront accessibles sous /health
@@ -27,6 +31,8 @@ app.use('/', rootRouter);
 app.use('/db', dbRouteur);
 // Monter la route de test du cache
 app.use('/cache', cacheRouteur);
+// Monter la route de contact
+app.use('/contact', contactRouter);
 
 // Démarrage du serveur
 // Le serveur écoute les requêtes HTTP sur le port défini
