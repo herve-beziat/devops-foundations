@@ -31,6 +31,20 @@ services:
       timeout: 3s
       retries: 5
 
+  mailhog:
+    image: mailhog/mailhog:v1.0.1
+    container_name: devops_mailhog
+    networks:
+      - devops
+    ports:
+      - "1025:1025"   # SMTP
+      - "8025:8025"   # UI web
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:8025"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
   adminer:
     image: adminer:4
     container_name: devops_adminer
