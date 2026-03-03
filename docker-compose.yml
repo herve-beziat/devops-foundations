@@ -55,6 +55,38 @@ services:
     networks:
       - devops
 
+  backend:
+    build:
+      context: ./src/backend
+    container_name: devops_backend
+    networks:
+      - devops
+    ports:
+      - "3000:3000"
+    environment:
+      PORT: 3000
+
+      # PostgreSQL (dans Docker => host = nom du service)
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: 5432
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+
+      # Redis (dans Docker => host = nom du service)
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      REDIS_KEY: devops:visits
+
+      # MailHog (dans Docker => host = nom du service)
+      SMTP_HOST: mailhog
+      SMTP_PORT: 1025
+      MAIL_FROM: no-reply@devops.local
+    depends_on:
+      - postgres
+      - redis
+      - mailhog
+
 volumes:
   postgres_data:
 
