@@ -87,6 +87,17 @@ services:
       - redis
       - mailhog
 
+  frontend:
+    build:
+      context: ./src/frontend
+    container_name: devops_frontend
+    ports:
+      - "5173:80"
+    networks:
+      - devops
+    depends_on:
+      - backend
+
 volumes:
   postgres_data:
 
