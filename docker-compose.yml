@@ -1,4 +1,15 @@
 services:
+  traefik:
+    image: traefik:v3.0
+    container_name: devops_traefik
+    ports:
+      - "80:80"
+      - "8080:8080"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - ./traefik/traefik.yml:/etc/traefik/traefik.yml:ro
+    networks:
+      - devops
   postgres:
     image: postgres:16-alpine
     container_name: devops_postgres
@@ -82,6 +93,12 @@ services:
       SMTP_HOST: mailhog
       SMTP_PORT: 1025
       MAIL_FROM: no-reply@devops.local
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.backend.rule=PathPrefix(`/api`)"
+      - "traefik.http.middlewares.api-stripprefix.stripprefix.prefixes=/api"
+      - "traefik.http.routers.backend.middlewares=api-stripprefix"
+      - "traefik.http.services.backend.loadbalancer.server.port=3000"
     depends_on:
       - postgres
       - redis
@@ -93,6 +110,10 @@ services:
     container_name: devops_frontend
     ports:
       - "5173:80"
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.frontend.rule=PathPrefix(`/`)"
+      - "traefik.http.services.frontend.loadbalancer.server.port=80"
     networks:
       - devops
     depends_on:
