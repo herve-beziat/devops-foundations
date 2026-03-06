@@ -92,7 +92,7 @@ services:
       context: ./src/frontend
     container_name: devops_frontend
     ports:
-      - "5173:80"
+      - "5173:5173"
     networks:
       - devops
     depends_on:
