@@ -18,7 +18,7 @@ btn.addEventListener('click', async () => {
   output.textContent = "Chargement..."
 
   try {
-    const response = await fetch('api/health')
+    const response = await fetch('http://api.localhost/health')
     const data = await response.json()
 
     output.textContent = JSON.stringify(data, null, 2)
