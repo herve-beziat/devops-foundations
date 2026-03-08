@@ -24,6 +24,11 @@ http:
         average: 100
         burst: 50
         period: 1m
+    
+    basic-auth:
+      basicAuth:
+        users:
+          - "test:$apr1$75o6DwSv$cx2A1ROYEh9qDZglJrrIT/"
 
 tls:
   certificates:
