@@ -2,17 +2,25 @@ services:
   traefik:
     image: traefik:v3.0
     container_name: devops_traefik
+
     ports:
       - "80:80"
+      - "443:443"
       - "8080:8080"
     labels:
       - "traefik.enable=true"
-      - "traefik.http.routers.traefik.rule=Host(`traefik.localhost`)"
-      - "traefik.http.routers.traefik.entrypoints=web"
-      - "traefik.http.routers.traefik.service=api@internal"
+      - "traefik.http.routers.traefik-http.rule=Host(`traefik.localhost`)"
+      - "traefik.http.routers.traefik-http.entrypoints=web"
+      - "traefik.http.routers.traefik-http.middlewares=https-redirect@file"
+      - "traefik.http.routers.traefik-secure.rule=Host(`traefik.localhost`)"
+      - "traefik.http.routers.traefik-secure.entrypoints=websecure"
+      - "traefik.http.routers.traefik-secure.tls=true"
+      - "traefik.http.routers.traefik-secure.service=api@internal"
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock:ro
       - ./traefik/traefik.yml:/etc/traefik/traefik.yml:ro
+      - ./traefik/dynamic:/dynamic:ro
+      - ./traefik/certs:/certs:ro
     networks:
       - devops
   postgres:
@@ -59,6 +67,10 @@ services:
       - "traefik.enable=true"
       - "traefik.http.routers.mailhog.rule=Host(`mail.localhost`)"
       - "traefik.http.routers.mailhog.entrypoints=web"
+      - "traefik.http.routers.mailhog.middlewares=https-redirect@file"
+      - "traefik.http.routers.mailhog-secure.rule=Host(`mail.localhost`)"
+      - "traefik.http.routers.mailhog-secure.entrypoints=websecure"
+      - "traefik.http.routers.mailhog-secure.tls=true"
       - "traefik.http.services.mailhog.loadbalancer.server.port=8025"
     healthcheck:
       test: ["CMD", "wget", "--spider", "-q", "http://localhost:8025"]
@@ -77,6 +89,10 @@ services:
       - "traefik.enable=true"
       - "traefik.http.routers.adminer.rule=Host(`db.localhost`)"
       - "traefik.http.routers.adminer.entrypoints=web"
+      - "traefik.http.routers.adminer.middlewares=https-redirect@file"
+      - "traefik.http.routers.adminer-secure.rule=Host(`db.localhost`)"
+      - "traefik.http.routers.adminer-secure.entrypoints=websecure"
+      - "traefik.http.routers.adminer-secure.tls=true"
       - "traefik.http.services.adminer.loadbalancer.server.port=8080"
     networks:
       - devops
@@ -112,6 +128,10 @@ services:
       - "traefik.enable=true"
       - "traefik.http.routers.backend.rule=Host(`api.localhost`)"
       - "traefik.http.routers.backend.entrypoints=web"
+      - "traefik.http.routers.backend.middlewares=https-redirect@file"
+      - "traefik.http.routers.backend-secure.rule=Host(`api.localhost`)"
+      - "traefik.http.routers.backend-secure.entrypoints=websecure"
+      - "traefik.http.routers.backend-secure.tls=true"
       - "traefik.http.services.backend.loadbalancer.server.port=3000"
     depends_on:
       - postgres
@@ -128,6 +148,10 @@ services:
       - "traefik.enable=true"
       - "traefik.http.routers.frontend.rule=Host(`app.localhost`)"
       - "traefik.http.routers.frontend.entrypoints=web"
+      - "traefik.http.routers.frontend.middlewares=https-redirect@file"
+      - "traefik.http.routers.frontend-secure.rule=Host(`app.localhost`)"
+      - "traefik.http.routers.frontend-secure.entrypoints=websecure"
+      - "traefik.http.routers.frontend-secure.tls=true"
       - "traefik.http.services.frontend.loadbalancer.server.port=80"
     networks:
       - devops
