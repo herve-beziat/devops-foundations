@@ -1,0 +1,11 @@
+http:
+  middlewares:
+    https-redirect:
+      redirectScheme:
+        scheme: https
+        permanent: true
+
+tls:
+  certificates:
+    - certFile: /certs/app.localhost+5.pem
+      keyFile: /certs/app.localhost+5-key.pem
