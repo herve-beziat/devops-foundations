@@ -1,12 +1,10 @@
 services:
   traefik:
     image: traefik:v3.0
-    container_name: devops_traefik
 
     ports:
       - "80:80"
       - "443:443"
-      - "8080:8080"
     labels:
       - "traefik.enable=true"
       - "traefik.http.routers.traefik-http.rule=Host(`traefik.localhost`)"
@@ -26,7 +24,6 @@ services:
       - devops
   postgres:
     image: postgres:16-alpine
-    container_name: devops_postgres
     environment:
       POSTGRES_DB: ${POSTGRES_DB}
       POSTGRES_USER: ${POSTGRES_USER}
@@ -35,8 +32,6 @@ services:
       - postgres_data:/var/lib/postgresql/data
     networks:
       - devops
-    ports:
-      - "5432:5432"
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
       interval: 10s
@@ -45,11 +40,8 @@ services:
 
   redis:
     image: redis:7-alpine
-    container_name: devops_redis
     networks:
       - devops
-    ports:
-      - "6379:6379"
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 10s
@@ -58,12 +50,8 @@ services:
 
   mailhog:
     image: mailhog/mailhog:v1.0.1
-    container_name: devops_mailhog
     networks:
       - devops
-    ports:
-      - "1025:1025"   # SMTP
-      - "8025:8025"   # UI web
     labels:
       - "traefik.enable=true"
       - "traefik.http.routers.mailhog.rule=Host(`mail.localhost`)"
@@ -81,11 +69,8 @@ services:
 
   adminer:
     image: adminer:4
-    container_name: devops_adminer
     depends_on:
       - postgres
-    ports:
-      - "8081:8080"
     labels:
       - "traefik.enable=true"
       - "traefik.http.routers.adminer.rule=Host(`db.localhost`)"
@@ -141,9 +126,6 @@ services:
   frontend:
     build:
       context: ./src/frontend
-    container_name: devops_frontend
-    ports:
-      - "5173:80"
     labels:
       - "traefik.enable=true"
       - "traefik.http.routers.frontend.rule=Host(`app.localhost`)"
