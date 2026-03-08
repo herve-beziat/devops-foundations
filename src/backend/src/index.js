@@ -20,6 +20,7 @@ const rootRouter = require('./routes/root');
 const dbRouteur = require('./routes/db');
 const cacheRouteur = require('./routes/cache');
 const contactRouter = require('./routes/contact');
+const whoamiRouter = require('./routes/whoami');
 
 // Montage des routes :
 // ici, toutes les routes définies dans health.js seront accessibles sous /health
@@ -33,6 +34,8 @@ app.use('/db', dbRouteur);
 app.use('/cache', cacheRouteur);
 // Monter la route de contact
 app.use('/contact', contactRouter);
+// Monter la route whoami pour démontrer le load balancing
+app.use('/whoami', whoamiRouter);
 
 // Démarrage du serveur
 // Le serveur écoute les requêtes HTTP sur le port défini
