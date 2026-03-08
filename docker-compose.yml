@@ -102,11 +102,8 @@ services:
   backend:
     build:
       context: ./src/backend
-    container_name: devops_backend
     networks:
       - devops
-    ports:
-      - "3000:3000"
     environment:
       PORT: 3000
 
