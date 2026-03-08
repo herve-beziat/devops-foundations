@@ -5,6 +5,31 @@ http:
         scheme: https
         permanent: true
 
+    security-headers:
+      headers:
+        frameDeny: true
+        contentTypeNosniff: true
+        browserXssFilter: true
+        forceSTSHeader: true
+        stsSeconds: 31536000
+        stsIncludeSubdomains: true
+        referrerPolicy: "no-referrer"
+        permissionsPolicy: "camera=(), microphone=(), geolocation=()"
+    
+    gzip-compress:
+      compress: {}
+
+    rate-limit:
+      rateLimit:
+        average: 100
+        burst: 50
+        period: 1m
+    
+    basic-auth:
+      basicAuth:
+        users:
+          - "test:$apr1$75o6DwSv$cx2A1ROYEh9qDZglJrrIT/"
+
 tls:
   certificates:
     - certFile: /certs/app.localhost+5.pem
