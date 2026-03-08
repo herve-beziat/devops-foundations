@@ -19,6 +19,12 @@ http:
     gzip-compress:
       compress: {}
 
+    rate-limit:
+      rateLimit:
+        average: 100
+        burst: 50
+        period: 1m
+
 tls:
   certificates:
     - certFile: /certs/app.localhost+5.pem

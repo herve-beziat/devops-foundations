@@ -133,7 +133,7 @@ services:
       - "traefik.http.routers.backend-secure.entrypoints=websecure"
       - "traefik.http.routers.backend-secure.tls=true"
       - "traefik.http.services.backend.loadbalancer.server.port=3000"
-      - "traefik.http.routers.backend-secure.middlewares=security-headers@file,gzip-compress@file"
+      - "traefik.http.routers.backend-secure.middlewares=security-headers@file,gzip-compress@file,rate-limit@file"
     depends_on:
       - postgres
       - redis
