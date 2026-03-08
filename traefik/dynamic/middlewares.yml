@@ -5,6 +5,17 @@ http:
         scheme: https
         permanent: true
 
+    security-headers:
+      headers:
+        frameDeny: true
+        contentTypeNosniff: true
+        browserXssFilter: true
+        forceSTSHeader: true
+        stsSeconds: 31536000
+        stsIncludeSubdomains: true
+        referrerPolicy: "no-referrer"
+        permissionsPolicy: "camera=(), microphone=(), geolocation=()"
+
 tls:
   certificates:
     - certFile: /certs/app.localhost+5.pem
