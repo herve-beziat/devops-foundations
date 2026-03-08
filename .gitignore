@@ -13,3 +13,7 @@ logs
 # OS
 .DS_Store
 Thumbs.db
+
+# Traefik
+traefik/certs/*
+!traefik/certs/.gitkeep
