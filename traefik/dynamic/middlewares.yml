@@ -15,6 +15,9 @@ http:
         stsIncludeSubdomains: true
         referrerPolicy: "no-referrer"
         permissionsPolicy: "camera=(), microphone=(), geolocation=()"
+    
+    gzip-compress:
+      compress: {}
 
 tls:
   certificates:
