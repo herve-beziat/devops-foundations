@@ -41,4 +41,4 @@ services:
     container_name: devops_frontend
     ports:
       # Frontend accessible directement sans passer par Traefik
-      - "5173:80"
+      - "5173:8080"
