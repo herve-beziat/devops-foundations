@@ -21,19 +21,19 @@ RED='\033[0;31m'
 YELLOW='\033[1;33m'
 NC='\033[0m'
 
-echo "${YELLOW}>> Peuplement de la base de données...${NC}"
+echo -e "${YELLOW}>> Peuplement de la base de données...${NC}"
 
 # Chargement des variables d'environnement depuis .env
 if [ -f .env ]; then
   export $(cat .env | grep -v '#' | xargs)
 else
-  echo "${RED}[ERREUR] Fichier .env introuvable.${NC}"
+  echo -e "${RED}[ERREUR] Fichier .env introuvable.${NC}"
   exit 1
 fi
 
 # Vérification que le conteneur postgres tourne
 if ! docker ps | grep -q devops_postgres; then
-  echo "${RED}[ERREUR] Le conteneur devops_postgres n'est pas démarré.${NC}"
+  echo -e "${RED}[ERREUR] Le conteneur devops_postgres n'est pas démarré.${NC}"
   echo "Lancez d'abord : docker compose up -d"
   exit 1
 fi
@@ -60,7 +60,7 @@ ON CONFLICT DO NOTHING;
 
 SQL
 
-echo "${GREEN}[OK] Table users créée et données insérées.${NC}"
+echo -e "${GREEN}[OK] Table users créée et données insérées.${NC}"
 echo ""
 echo "Pour vérifier : https://db.localhost (Adminer)"
 echo "  Serveur   : postgres"

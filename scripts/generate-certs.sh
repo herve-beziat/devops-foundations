@@ -14,11 +14,11 @@ RED='\033[0;31m'
 YELLOW='\033[1;33m'
 NC='\033[0m'
 
-echo "${YELLOW}>> Génération des certificats TLS locaux...${NC}"
+echo -e "${YELLOW}>> Génération des certificats TLS locaux...${NC}"
 
 # Vérification que mkcert est installé
 if ! command -v mkcert > /dev/null 2>&1; then
-  echo "${RED}[ERREUR] mkcert n'est pas installé.${NC}"
+  echo -e "${RED}[ERREUR] mkcert n'est pas installé.${NC}"
   echo "Installez-le via : https://github.com/FiloSottile/mkcert"
   exit 1
 fi
@@ -42,4 +42,4 @@ mkcert \
   traefik.localhost \
   localhost
 
-echo "${GREEN}[OK] Certificats générés dans traefik/certs/${NC}"
+echo -e "${GREEN}[OK] Certificats générés dans traefik/certs/${NC}"
