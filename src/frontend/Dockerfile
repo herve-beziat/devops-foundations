@@ -22,9 +22,19 @@ LABEL org.opencontainers.image.description="Frontend for DevOps Foundations proj
 LABEL org.opencontainers.image.source="https://github.com/herve-beziat/devops-foundations"
 LABEL org.opencontainers.image.licenses="MIT"
 
+# Sécurité : utilisateur non-root avec UID/GID explicites
+# nginx a besoin de permissions sur ces dossiers pour fonctionner
+RUN addgroup -g 1001 appgroup && adduser -S -u 1001 -G appgroup appuser \
+  && chown -R appuser:appgroup /var/cache/nginx /var/run /var/log/nginx /usr/share/nginx/html /run
+
 # Copier le build statique dans nginx
 COPY --from=builder /app/dist /usr/share/nginx/html
 COPY nginx.conf /etc/nginx/conf.d/default.conf
+
+# Ajuster les permissions après la copie
+RUN chown -R appuser:appgroup /usr/share/nginx/html
+
+USER appuser
 
 EXPOSE 80
 
