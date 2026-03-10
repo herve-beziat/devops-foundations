@@ -278,7 +278,7 @@ h1 span {
 /* ── Visits mini-card (dans la card Cache) ── */
 
 .visits-block {
-  margin: 1.25rem auto 0;
+  margin: 2.8rem auto 0;
   padding: 1rem 1.5rem;
   border: 1px solid var(--border-glow);
   background: var(--bg);
