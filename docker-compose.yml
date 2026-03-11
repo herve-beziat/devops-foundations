@@ -149,10 +149,20 @@ services:
       - "traefik.http.routers.frontend-secure.middlewares=security-headers@file,gzip-compress@file"
     depends_on:
       - backend
+  
+  portainer:
+    image: portainer/portainer-ce:2.39.0
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - portainer_data:/data
+    networks:
+      - frontend
+    restart: unless-stopped
 
 volumes:
   postgres_data:
   redis_data:
+  portainer_data:
 
 networks:
   # Réseau exposé — contient Traefik et le Frontend
