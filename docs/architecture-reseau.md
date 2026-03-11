@@ -16,6 +16,7 @@ Le projet utilise deux réseaux Docker distincts pour isoler les services :
 Contient les services exposés publiquement via Traefik :
 - **Traefik** : point d'entrée unique pour tout le trafic entrant
 - **Frontend** : serveur nginx qui sert les fichiers statiques
+- **Portainer** : interface graphique de gestion des conteneurs Docker
 
 ### Réseau `backend`
 Contient les services internes, inaccessibles directement depuis l'extérieur :
