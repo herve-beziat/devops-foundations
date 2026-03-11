@@ -15,6 +15,12 @@ Stack DevOps prête pour la production avec Docker, Traefik et workflow Git prof
 
 ---
 
+## Livrable 4.2 — Screencast de démonstration
+
+[▶ Voir la démonstration sur YouTube](https://youtu.be/tZpToiFgD1U)
+
+---
+
 ## Prérequis
 
 - [Docker Desktop](https://www.docker.com/products/docker-desktop/) v24+
