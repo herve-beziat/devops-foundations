@@ -1,0 +1,164 @@
+services:
+  traefik:
+    image: traefik:v3.0
+    ports:
+      - "80:80"
+      - "443:443"
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.traefik-http.rule=Host(`traefik.localhost`)"
+      - "traefik.http.routers.traefik-http.entrypoints=web"
+      - "traefik.http.routers.traefik-http.middlewares=https-redirect@file"
+      - "traefik.http.routers.traefik-secure.rule=Host(`traefik.localhost`)"
+      - "traefik.http.routers.traefik-secure.entrypoints=websecure"
+      - "traefik.http.routers.traefik-secure.tls=true"
+      - "traefik.http.routers.traefik-secure.service=api@internal"
+      - "traefik.http.routers.traefik-secure.middlewares=basic-auth@file"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - ./traefik/traefik.yml:/etc/traefik/traefik.yml:ro
+      - ./traefik/dynamic:/dynamic:ro
+      - ./traefik/certs:/certs:ro
+    # Traefik est sur les deux réseaux car il route vers le frontend ET le backend
+    networks:
+      - frontend
+      - backend
+
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    # PostgreSQL est isolé sur le réseau backend uniquement
+    # Le frontend ne peut pas y accéder directement
+    networks:
+      - backend
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    # Redis est isolé sur le réseau backend uniquement
+    networks:
+      - backend
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+
+  mailhog:
+    image: mailhog/mailhog:v1.0.1
+    # MailHog est sur le réseau backend car le backend l'utilise pour envoyer des emails
+    # Traefik y accède aussi pour exposer l'UI via mail.localhost
+    networks:
+      - backend
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.mailhog.rule=Host(`mail.localhost`)"
+      - "traefik.http.routers.mailhog.entrypoints=web"
+      - "traefik.http.routers.mailhog.middlewares=https-redirect@file"
+      - "traefik.http.routers.mailhog-secure.rule=Host(`mail.localhost`)"
+      - "traefik.http.routers.mailhog-secure.entrypoints=websecure"
+      - "traefik.http.routers.mailhog-secure.tls=true"
+      - "traefik.http.services.mailhog.loadbalancer.server.port=8025"
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:8025"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  adminer:
+    image: adminer:4
+    depends_on:
+      - postgres
+    # Adminer est sur le réseau backend car il accède à PostgreSQL
+    # Traefik y accède aussi pour exposer l'UI via db.localhost
+    networks:
+      - backend
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.adminer.rule=Host(`db.localhost`)"
+      - "traefik.http.routers.adminer.entrypoints=web"
+      - "traefik.http.routers.adminer.middlewares=https-redirect@file"
+      - "traefik.http.routers.adminer-secure.rule=Host(`db.localhost`)"
+      - "traefik.http.routers.adminer-secure.entrypoints=websecure"
+      - "traefik.http.routers.adminer-secure.tls=true"
+      - "traefik.http.routers.adminer-secure.middlewares=basic-auth@file"
+      - "traefik.http.services.adminer.loadbalancer.server.port=8080"
+
+  backend:
+    build:
+      context: ./src/backend
+    # Le backend est sur le réseau backend uniquement
+    # Il communique avec postgres, redis, mailhog et Traefik
+    networks:
+      - backend
+    environment:
+      PORT: 3000
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: 5432
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      REDIS_KEY: devops:visits
+      SMTP_HOST: mailhog
+      SMTP_PORT: 1025
+      MAIL_FROM: no-reply@devops.local
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.backend.rule=Host(`api.localhost`)"
+      - "traefik.http.routers.backend.entrypoints=web"
+      - "traefik.http.routers.backend.middlewares=https-redirect@file"
+      - "traefik.http.routers.backend-secure.rule=Host(`api.localhost`)"
+      - "traefik.http.routers.backend-secure.entrypoints=websecure"
+      - "traefik.http.routers.backend-secure.tls=true"
+      - "traefik.http.services.backend.loadbalancer.server.port=3000"
+      - "traefik.http.routers.backend-secure.middlewares=security-headers@file,gzip-compress@file,rate-limit@file"
+    depends_on:
+      - postgres
+      - redis
+      - mailhog
+
+  frontend:
+    build:
+      context: ./src/frontend
+    # Le frontend est sur le réseau frontend uniquement
+    # Il ne peut pas accéder directement à postgres ou redis
+    networks:
+      - frontend
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.frontend.rule=Host(`app.localhost`)"
+      - "traefik.http.routers.frontend.entrypoints=web"
+      - "traefik.http.routers.frontend.middlewares=https-redirect@file"
+      - "traefik.http.routers.frontend-secure.rule=Host(`app.localhost`)"
+      - "traefik.http.routers.frontend-secure.entrypoints=websecure"
+      - "traefik.http.routers.frontend-secure.tls=true"
+      - "traefik.http.services.frontend.loadbalancer.server.port=8080"
+      - "traefik.http.routers.frontend-secure.middlewares=security-headers@file,gzip-compress@file"
+    depends_on:
+      - backend
+
+volumes:
+  postgres_data:
+  redis_data:
+
+networks:
+  # Réseau exposé — contient Traefik et le Frontend
+  frontend:
+    driver: bridge
+  # Réseau privé — contient le Backend, PostgreSQL, Redis, MailHog, Adminer
+  # Isolé du réseau frontend pour la sécurité
+  backend:
+    driver: bridge

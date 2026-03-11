@@ -1,0 +1,17 @@
+{
+  "name": "devops-foundations-backend",
+  "version": "1.0.0",
+  "description": "Backend API for DevOps Foundations project",
+  "main": "src/index.js",
+  "scripts": {
+    "start": "node src/index.js"
+  },
+  "author": "Herve Beziat",
+  "license": "MIT",
+  "dependencies": {
+    "express": "^5.2.1",
+    "nodemailer": "^8.0.1",
+    "pg": "^8.19.0",
+    "redis": "^5.11.0"
+  }
+}

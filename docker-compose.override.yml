@@ -1,0 +1,44 @@
+services:
+  traefik:
+    # Nom fixe en dev pour faciliter le debug
+    container_name: devops_traefik
+    ports:
+      # Dashboard Traefik accessible directement sans passer par le domaine
+      - "8080:8080"
+
+  postgres:
+    # Nom fixe en dev pour faciliter le debug
+    container_name: devops_postgres
+    ports:
+      # Accès direct à PostgreSQL depuis l'IDE ou un client comme DBeaver/TablePlus
+      - "5432:5432"
+
+  redis:
+    # Nom fixe en dev pour faciliter le debug
+    container_name: devops_redis
+    ports:
+      # Accès direct à Redis depuis un client comme RedisInsight
+      - "6379:6379"
+
+  mailhog:
+    # Nom fixe en dev pour faciliter le debug
+    container_name: devops_mailhog
+    ports:
+      # Port SMTP pour envoyer des emails depuis l'extérieur du réseau Docker
+      - "1025:1025"
+      # Interface web MailHog accessible directement sans passer par le domaine
+      - "8025:8025"
+
+  adminer:
+    # Nom fixe en dev pour faciliter le debug
+    container_name: devops_adminer
+    ports:
+      # Adminer accessible directement sans passer par le domaine
+      - "8081:8080"
+
+  frontend:
+    # Nom fixe en dev pour faciliter le debug
+    container_name: devops_frontend
+    ports:
+      # Frontend accessible directement sans passer par Traefik
+      - "5173:8080"
