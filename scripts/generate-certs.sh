@@ -33,13 +33,14 @@ mkcert -install
 # Génération des certificats pour tous les domaines du projet
 echo ">> Génération des certificats pour les domaines localhost..."
 mkcert \
-  -cert-file traefik/certs/app.localhost+5.pem \
-  -key-file  traefik/certs/app.localhost+5-key.pem \
+  -cert-file traefik/certs/app.localhost+6.pem \
+  -key-file  traefik/certs/app.localhost+6-key.pem \
   app.localhost \
   api.localhost \
   db.localhost \
   mail.localhost \
   traefik.localhost \
+  portainer.localhost \
   localhost
 
 echo -e "${GREEN}[OK] Certificats générés dans traefik/certs/${NC}"

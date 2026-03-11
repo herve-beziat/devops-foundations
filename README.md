@@ -93,7 +93,7 @@ Voir `.env.example` pour les valeurs par défaut.
 | Adminer (DB) | https://db.localhost | Basic Auth (test/test) |
 | MailHog | https://mail.localhost | — |
 | Traefik Dashboard | https://traefik.localhost | Basic Auth (test/test) |
-
+| Portainer | https://portainer.localhost | — |
 ### Endpoints API
 
 | Endpoint | Méthode | Description |
