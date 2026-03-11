@@ -169,10 +169,31 @@ services:
       - "traefik.http.services.portainer.loadbalancer.server.port=9000"
     restart: unless-stopped
 
+  prometheus:
+    image: prom/prometheus:v3.2.1
+    volumes:
+      - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus_data:/prometheus
+    networks:
+      - backend
+    restart: unless-stopped
+
+  cadvisor:
+    image: gcr.io/cadvisor/cadvisor:v0.52.1
+    volumes:
+      - /:/rootfs:ro
+      - /var/run:/var/run:ro
+      - /sys:/sys:ro
+      - /var/lib/docker/:/var/lib/docker:ro
+    networks:
+      - backend
+    restart: unless-stopped
+
 volumes:
   postgres_data:
   redis_data:
   portainer_data:
+  prometheus_data:
 
 networks:
   # Réseau exposé — contient Traefik et le Frontend
