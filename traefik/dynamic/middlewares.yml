@@ -32,5 +32,5 @@ http:
 
 tls:
   certificates:
-    - certFile: /certs/app.localhost+6.pem
-      keyFile: /certs/app.localhost+6-key.pem
+    - certFile: /certs/app.localhost+7.pem
+      keyFile: /certs/app.localhost+7-key.pem
