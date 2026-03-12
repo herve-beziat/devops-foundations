@@ -33,4 +33,13 @@ MSYS_NO_PATHCONV=1 docker run --rm \
   --output /output/frontend-scan.json \
   devops-foundations-frontend
 
+echo -e "${YELLOW}>> Scanning source code for secrets...${NC}"
+MSYS_NO_PATHCONV=1 docker run --rm \
+  -v "$(pwd):/project" \
+  aquasec/trivy fs \
+  --scanners secret \
+  --format json \
+  --output /project/docs/security/fs-scan.json \
+  /project
+
 echo -e "${GREEN}[OK] Reports exported to docs/security/${NC}"
