@@ -16,8 +16,8 @@ NC='\033[0m'
 mkdir -p docs/security
 
 echo -e "${YELLOW}>> Scanning backend image...${NC}"
-docker run --rm \
-  -v /var/run/docker.sock:/var/run/docker.sock \
+MSYS_NO_PATHCONV=1 docker run --rm \
+  -v //var/run/docker.sock:/var/run/docker.sock \
   -v "$(pwd)/docs/security:/output" \
   aquasec/trivy image \
   --format json \
@@ -25,8 +25,8 @@ docker run --rm \
   devops-foundations-backend
 
 echo -e "${YELLOW}>> Scanning frontend image...${NC}"
-docker run --rm \
-  -v /var/run/docker.sock:/var/run/docker.sock \
+MSYS_NO_PATHCONV=1 docker run --rm \
+  -v //var/run/docker.sock:/var/run/docker.sock \
   -v "$(pwd)/docs/security:/output" \
   aquasec/trivy image \
   --format json \
