@@ -12,6 +12,11 @@ Stack DevOps prête pour la production avec Docker, Traefik et workflow Git prof
 | Cache | redis:7-alpine | — |
 | Mail | mailhog/mailhog | https://mail.localhost |
 | Reverse Proxy | traefik:v3 | https://traefik.localhost |
+| Management | portainer-ce:2.39.0 | https://portainer.localhost |
+| Monitoring | grafana:11.5.2 | https://monitor.localhost |
+| Metrics | prom/prometheus:v3.2.1 | — |
+| Containers metrics | cadvisor:v0.52.1 | — |
+| Auto-update | watchtower:1.7.1 | — |
 
 ---
 
@@ -94,6 +99,9 @@ Voir `.env.example` pour les valeurs par défaut.
 | MailHog | https://mail.localhost | — |
 | Traefik Dashboard | https://traefik.localhost | Basic Auth (test/test) |
 | Portainer | https://portainer.localhost | — |
+| Grafana | https://monitor.localhost | — |
+| Watchtower | — | Automatic container updates + Discord notifications |
+
 ### Endpoints API
 
 | Endpoint | Méthode | Description |
@@ -163,6 +171,15 @@ docker ps
 docker stats --no-stream
 ```
 
+### Watchtower
+\`\`\`bash
+# Check watchtower logs
+docker compose logs watchtower
+
+# Force an immediate update check
+docker compose exec watchtower /watchtower --run-once
+\`\`\`
+
 ---
 
 ## Démonstration du load balancing
@@ -211,26 +228,33 @@ docker compose up -d --scale backend=2
 
 ```
 devops-foundations/
-├── docker-compose.yml              # Configuration de base
-├── docker-compose.override.yml     # Overrides développement
-├── docker-compose.prod.yml         # Overrides production
-├── .env.example                    # Variables d'environnement (exemple)
+├── docker-compose.yml              # Base configuration
+├── docker-compose.override.yml     # Development overrides
+├── docker-compose.prod.yml         # Production overrides
+├── .env.example                    # Environment variables (example)
 ├── traefik/
-│   ├── traefik.yml                 # Configuration statique Traefik
-│   ├── certs/                      # Certificats TLS (non versionnés)
+│   ├── traefik.yml                 # Traefik static configuration
+│   ├── certs/                      # TLS certificates (not versioned)
 │   └── dynamic/
-│       └── middlewares.yml         # Middlewares et configuration TLS
+│       └── middlewares.yml         # Middlewares and TLS configuration
+├── monitoring/
+│   ├── prometheus.yml              # Prometheus scrape configuration
+│   └── grafana/
+│       ├── provisioning/
+│       │   ├── datasources/        # Auto-provisioned Prometheus datasource
+│       │   └── dashboards/         # Dashboards provisioning config
+│       └── dashboards/             # Pre-built Grafana dashboards (JSON)
 ├── src/
-│   ├── backend/                    # API Node.js/Express
-│   └── frontend/                   # App Vite + nginx
+│   ├── backend/                    # Node.js/Express API
+│   └── frontend/                   # Vite + nginx app
 ├── scripts/
-│   ├── init.sh                     # Initialisation du projet
-│   ├── generate-certs.sh           # Génération des certificats TLS
-│   └── seed-db.sh                  # Peuplement de la base de données
+│   ├── init.sh                     # Project initialization
+│   ├── generate-certs.sh           # TLS certificates generation
+│   └── seed-db.sh                  # Database seeding
 └── docs/
-    ├── architecture-reseau.md      # Documentation réseau
-    ├── merge-vs-rebase.md          # Politique Git
-    └── image-size-comparison.md    # Comparaison taille images Docker
+    ├── architecture-reseau.md      # Network architecture documentation
+    ├── merge-vs-rebase.md          # Git policy
+    └── image-size-comparison.md    # Docker image size comparison
 ```
 
 ---
