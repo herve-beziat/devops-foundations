@@ -14,6 +14,7 @@ services:
       - "traefik.http.routers.traefik-secure.tls=true"
       - "traefik.http.routers.traefik-secure.service=api@internal"
       - "traefik.http.routers.traefik-secure.middlewares=basic-auth@file"
+      - "com.centurylinklabs.watchtower.enable=true"
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock:ro
       - ./traefik/traefik.yml:/etc/traefik/traefik.yml:ro
@@ -41,6 +42,8 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
+    labels:
+      - "com.centurylinklabs.watchtower.enable=false"
 
   redis:
     image: redis:7-alpine
@@ -54,6 +57,8 @@ services:
       interval: 10s
       timeout: 3s
       retries: 5
+    labels:
+      - "com.centurylinklabs.watchtower.enable=false"
 
   mailhog:
     image: mailhog/mailhog:v1.0.1
@@ -70,6 +75,7 @@ services:
       - "traefik.http.routers.mailhog-secure.entrypoints=websecure"
       - "traefik.http.routers.mailhog-secure.tls=true"
       - "traefik.http.services.mailhog.loadbalancer.server.port=8025"
+      - "com.centurylinklabs.watchtower.enable=true"
     healthcheck:
       test: ["CMD", "wget", "--spider", "-q", "http://localhost:8025"]
       interval: 10s
@@ -94,6 +100,7 @@ services:
       - "traefik.http.routers.adminer-secure.tls=true"
       - "traefik.http.routers.adminer-secure.middlewares=basic-auth@file"
       - "traefik.http.services.adminer.loadbalancer.server.port=8080"
+      - "com.centurylinklabs.watchtower.enable=true"
 
   backend:
     build:
@@ -125,6 +132,7 @@ services:
       - "traefik.http.routers.backend-secure.tls=true"
       - "traefik.http.services.backend.loadbalancer.server.port=3000"
       - "traefik.http.routers.backend-secure.middlewares=security-headers@file,gzip-compress@file,rate-limit@file"
+      - "com.centurylinklabs.watchtower.enable=false"
     depends_on:
       - postgres
       - redis
@@ -147,6 +155,7 @@ services:
       - "traefik.http.routers.frontend-secure.tls=true"
       - "traefik.http.services.frontend.loadbalancer.server.port=8080"
       - "traefik.http.routers.frontend-secure.middlewares=security-headers@file,gzip-compress@file"
+      - "com.centurylinklabs.watchtower.enable=false"
     depends_on:
       - backend
   
@@ -167,6 +176,7 @@ services:
       - "traefik.http.routers.portainer-secure.tls=true"
       - "traefik.http.routers.portainer-secure.middlewares=security-headers@file"
       - "traefik.http.services.portainer.loadbalancer.server.port=9000"
+      - "com.centurylinklabs.watchtower.enable=true"
     restart: unless-stopped
 
   prometheus:
@@ -176,6 +186,8 @@ services:
       - prometheus_data:/prometheus
     networks:
       - backend
+    labels:
+      - "com.centurylinklabs.watchtower.enable=false"
     restart: unless-stopped
 
   cadvisor:
@@ -187,6 +199,8 @@ services:
       - /var/lib/docker/:/var/lib/docker:ro
     networks:
       - backend
+    labels:
+      - "com.centurylinklabs.watchtower.enable=true"
     restart: unless-stopped
 
   grafana:
@@ -208,6 +222,7 @@ services:
       - "traefik.http.routers.grafana-secure.tls=true"
       - "traefik.http.routers.grafana-secure.middlewares=security-headers@file"
       - "traefik.http.services.grafana.loadbalancer.server.port=3000"
+      - "com.centurylinklabs.watchtower.enable=false"
     environment:
       - GF_SECURITY_ADMIN_PASSWORD=admin
       - GF_USERS_ALLOW_SIGN_UP=false
