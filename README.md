@@ -38,7 +38,6 @@ Stack DevOps prête pour la production avec Docker, Traefik et workflow Git prof
 ## Installation
 
 ### 1. Cloner le dépôt
-
 ```bash
 git clone https://github.com/herve-beziat/devops-foundations.git
 cd devops-foundations
@@ -47,7 +46,6 @@ cd devops-foundations
 ### 2. Initialisation automatique
 
 Le script `init.sh` fait tout en une seule commande :
-
 ```bash
 sh scripts/init.sh
 ```
@@ -61,7 +59,6 @@ Il effectue dans l'ordre :
 ### 3. Initialisation manuelle (optionnel)
 
 Si vous préférez faire les étapes une par une :
-
 ```bash
 # Copier le fichier d'environnement
 cp .env.example .env
@@ -78,11 +75,11 @@ docker compose up -d --build --scale backend=2
 ## Configuration
 
 Les variables d'environnement sont dans le fichier `.env` (non versionné) :
-
 ```env
 POSTGRES_DB=devops_db
 POSTGRES_USER=devops_user
 POSTGRES_PASSWORD=devops_password
+WATCHTOWER_NOTIFICATION_URL=discord://token@channel_id
 ```
 
 Voir `.env.example` pour les valeurs par défaut.
@@ -99,7 +96,7 @@ Voir `.env.example` pour les valeurs par défaut.
 | MailHog | https://mail.localhost | — |
 | Traefik Dashboard | https://traefik.localhost | Basic Auth (test/test) |
 | Portainer | https://portainer.localhost | — |
-| Grafana | https://monitor.localhost | — |
+| Grafana | https://monitor.localhost | admin/admin |
 | Watchtower | — | Automatic container updates + Discord notifications |
 
 ### Endpoints API
@@ -118,7 +115,6 @@ Voir `.env.example` pour les valeurs par défaut.
 ## Commandes utiles
 
 ### Démarrage
-
 ```bash
 # Démarrage standard (dev)
 docker compose up -d --build --scale backend=2
@@ -128,7 +124,6 @@ docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --scale ba
 ```
 
 ### Arrêt
-
 ```bash
 # Arrêt (données conservées)
 docker compose down
@@ -138,7 +133,6 @@ docker compose down -v
 ```
 
 ### Logs
-
 ```bash
 # Logs de tous les services
 docker compose logs
@@ -152,7 +146,6 @@ docker compose logs -f backend
 ```
 
 ### Rebuild
-
 ```bash
 # Rebuild d'un service spécifique
 docker compose up -d --build frontend
@@ -162,7 +155,6 @@ docker compose up -d --build --scale backend=2
 ```
 
 ### Monitoring
-
 ```bash
 # Statut des conteneurs
 docker ps
@@ -172,20 +164,48 @@ docker stats --no-stream
 ```
 
 ### Watchtower
-\`\`\`bash
-# Check watchtower logs
+```bash
+# Logs Watchtower
 docker compose logs watchtower
 
-# Force an immediate update check
+# Forcer une vérification immédiate des mises à jour
 docker compose exec watchtower /watchtower --run-once
-\`\`\`
+```
+
+### Sécurité (Trivy)
+```bash
+# Lancer tous les scans (images + filesystem)
+sh scripts/scan.sh
+
+# Scanner uniquement l'image backend
+MSYS_NO_PATHCONV=1 docker run --rm \
+  -v //var/run/docker.sock:/var/run/docker.sock \
+  aquasec/trivy image \
+  --severity HIGH,CRITICAL \
+  devops-foundations-backend
+
+# Scanner uniquement l'image frontend
+MSYS_NO_PATHCONV=1 docker run --rm \
+  -v //var/run/docker.sock:/var/run/docker.sock \
+  aquasec/trivy image \
+  --severity HIGH,CRITICAL \
+  devops-foundations-frontend
+
+# Scanner le code source pour détecter des secrets
+MSYS_NO_PATHCONV=1 docker run --rm \
+  -v "$(pwd):/project" \
+  aquasec/trivy fs \
+  --scanners secret \
+  /project
+```
+
+Les rapports sont générés dans `docs/security/`.
 
 ---
 
 ## Démonstration du load balancing
 
 Le backend tourne avec 2 replicas. Pour vérifier la distribution du trafic :
-
 ```bash
 # PowerShell
 for ($i = 1; $i -le 6; $i++) { $r = curl.exe -k -s https://api.localhost/whoami; Write-Host "$i : $r" }
@@ -201,7 +221,6 @@ Les réponses alternent entre les deux instances du backend.
 ## Persistance des données
 
 ### Démonstration
-
 ```bash
 # 1. Peupler la base de données
 sh scripts/seed-db.sh
@@ -221,11 +240,13 @@ docker compose up -d --scale backend=2
 |---|---|---|
 | `postgres_data` | PostgreSQL | Base de données |
 | `redis_data` | Redis | Cache et compteur de visites |
+| `portainer_data` | Portainer | Configuration et données Portainer |
+| `prometheus_data` | Prometheus | Métriques collectées |
+| `grafana_data` | Grafana | Dashboards et configuration |
 
 ---
 
 ## Structure du projet
-
 ```
 devops-foundations/
 ├── docker-compose.yml              # Base configuration
@@ -250,11 +271,16 @@ devops-foundations/
 ├── scripts/
 │   ├── init.sh                     # Project initialization
 │   ├── generate-certs.sh           # TLS certificates generation
-│   └── seed-db.sh                  # Database seeding
+│   ├── seed-db.sh                  # Database seeding
+│   └── scan.sh                     # Trivy security scan
 └── docs/
     ├── architecture-reseau.md      # Network architecture documentation
     ├── merge-vs-rebase.md          # Git policy
-    └── image-size-comparison.md    # Docker image size comparison
+    ├── image-size-comparison.md    # Docker image size comparison
+    └── security/
+        ├── vulnerability-report.md # Trivy vulnerability report
+        ├── backend-scan.json       # Backend image scan (raw)
+        └── frontend-scan.json      # Frontend image scan (raw)
 ```
 
 ---
