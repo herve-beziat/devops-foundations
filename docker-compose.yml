@@ -236,6 +236,7 @@ services:
       - WATCHTOWER_CLEANUP=true
       - WATCHTOWER_SCHEDULE=0 0 4 * * *
       - WATCHTOWER_LABEL_ENABLE=true
+      - WATCHTOWER_NOTIFICATION_URL=${WATCHTOWER_NOTIFICATION_URL}
     networks:
       - backend
     restart: unless-stopped
