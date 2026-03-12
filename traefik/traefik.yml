@@ -5,14 +5,20 @@ api:
 entryPoints:
   web:
     address: ":80"
-
   websecure:
     address: ":443"
+  metrics:
+    address: ":8082"
 
 providers:
   docker:
     exposedByDefault: false
-
   file:
     directory: /dynamic
     watch: true
+
+metrics:
+  prometheus:
+    entryPoint: metrics
+    addEntryPointsLabels: true
+    addServicesLabels: true

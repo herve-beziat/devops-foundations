@@ -158,6 +158,14 @@ document.querySelector('#app').innerHTML = `
             <a class="service-link" href="https://traefik.localhost" target="_blank">traefik.localhost</a>
             <span class="service-desc">Traefik dashboard</span>
           </div>
+          <div class="data-row">
+            <a class="service-link" href="https://portainer.localhost" target="_blank">portainer.localhost</a>
+            <span class="service-desc">Portainer dashboard</span>
+          </div>
+          <div class="data-row">
+            <a class="service-link" href="https://monitor.localhost" target="_blank">monitor.localhost</a>
+            <span class="service-desc">Grafana dashboard</span>
+          </div>
         </div>
       </div>
 
