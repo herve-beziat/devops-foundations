@@ -17,3 +17,6 @@ Thumbs.db
 # Traefik
 traefik/certs/*
 !traefik/certs/.gitkeep
+
+# docker-stack à finir
+docker-stack.yml
