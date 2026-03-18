@@ -294,6 +294,7 @@ services:
       - WATCHTOWER_CLEANUP=true
       - WATCHTOWER_SCHEDULE=0 0 4 * * *
       - WATCHTOWER_LABEL_ENABLE=true
+      - WATCHTOWER_NOTIFICATION_URL=/run/secrets/watchtower_notification_url
     secrets:
       - watchtower_notification_url
     deploy:
