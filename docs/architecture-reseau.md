@@ -115,3 +115,83 @@ La base de données PostgreSQL et Redis ne sont accessibles que depuis le résea
 
 ### Utilisateur non-root
 Les conteneurs backend et frontend tournent avec un utilisateur dédié (`appuser`, UID 1001) pour limiter l'impact d'une éventuelle compromission du conteneur.
+
+---
+
+## 5. Docker Swarm (bonus)
+
+### Différences avec Docker Compose
+
+En mode Swarm, l'architecture réseau évolue :
+
+| Concept | Docker Compose | Docker Swarm |
+|---|---|---|
+| Réseau | `bridge` (une machine) | `overlay` (multi-machines) |
+| Secrets | Variables `.env` en clair | Chiffrés dans le Raft store |
+| Replicas | `--scale backend=2` | Défini dans `docker-stack.yml` |
+| Mise à jour | Redémarrage complet | Zero downtime (rolling update) |
+
+### Réseau overlay
+
+En Swarm, les réseaux `frontend` et `backend` utilisent le driver `overlay` au lieu de `bridge`. Un réseau overlay s'étend sur plusieurs machines physiques — les conteneurs sur des nodes différents peuvent communiquer comme s'ils étaient sur la même machine.
+
+### Docker Secrets
+
+Les secrets remplacent les variables d'environnement en clair. Ils sont :
+- **Chiffrés** dans le Raft store de Swarm
+- **Montés comme fichiers** dans `/run/secrets/` dans les conteneurs
+- **Jamais visibles** dans `docker inspect` ou les logs
+```bash
+# Création des secrets
+echo "devops_password" | docker secret create postgres_password -
+echo "devops_user" | docker secret create postgres_user -
+echo "devops_db" | docker secret create postgres_db -
+echo "discord://TOKEN@CHANNEL_ID" | docker secret create watchtower_notification_url -
+```
+
+Le code backend a été adapté pour lire les secrets depuis les fichiers **tout en restant compatible** avec Docker Compose :
+```javascript
+function readSecret(envVar) {
+  const fileVar = process.env[`${envVar}_FILE`];
+  if (fileVar) {
+    return fs.readFileSync(fileVar, 'utf8').trim(); // Mode Swarm
+  }
+  return process.env[envVar]; // Mode Compose
+}
+```
+
+### Placement des services
+
+Certains services sont contraints de tourner sur le **node manager** :
+
+| Service | Contrainte | Raison |
+|---|---|---|
+| Traefik | `node.role == manager` | Accès au socket Docker |
+| PostgreSQL | `node.role == manager` | Volume de données local |
+| Redis | `node.role == manager` | Volume de données local |
+| Portainer | `node.role == manager` | Accès au socket Docker |
+| Prometheus | `node.role == manager` | Volume de métriques local |
+| cAdvisor | `node.role == manager` | Volumes système (`/sys`, `/var/lib/docker`) |
+| Grafana | `node.role == manager` | Volume de dashboards local |
+| Watchtower | `node.role == manager` | Accès au socket Docker |
+
+Les services **stateless** (Backend, Frontend, MailHog, Adminer) peuvent tourner sur n'importe quel node.
+
+### Zero downtime deployment
+
+Le backend est configuré avec une stratégie de rolling update :
+```yaml
+deploy:
+  replicas: 2
+  update_config:
+    parallelism: 1   # Met à jour 1 replica à la fois
+    delay: 10s       # Attend 10s entre chaque mise à jour
+```
+
+Lors d'une mise à jour, Swarm met à jour `backend.1`, attend 10s que le service soit healthy, puis met à jour `backend.2`. Le service reste disponible en permanence.
+```bash
+# Mise à jour sans interruption
+docker service update --image devops-foundations-backend:latest --force devops_backend
+```
+
+> 💡 **Note avancée** : Dans un vrai cluster multi-nodes, cAdvisor devrait être déployé en mode `global` (un conteneur par node) pour monitorer chaque machine du cluster. La configuration actuelle avec `replicas: 1` est adaptée à un cluster single-node.
