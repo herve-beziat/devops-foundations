@@ -15,48 +15,48 @@ RED='\033[0;31m'
 YELLOW='\033[1;33m'
 NC='\033[0m'
 
-echo -e "${YELLOW}=============================${NC}"
-echo -e "${YELLOW}  devops-foundations - init  ${NC}"
-echo -e "${YELLOW}=============================${NC}"
+printf "${YELLOW}=============================${NC}\n"
+printf "${YELLOW}  devops-foundations - init  ${NC}\n"
+printf "${YELLOW}=============================${NC}\n"
 
 # -----------------------------------------------------------------------------
 # 1. Vérification des dépendances
 # -----------------------------------------------------------------------------
-echo -e "\n>> Vérification des dépendances..."
+printf "\n>> Vérification des dépendances...\n"
 
 if ! command -v docker > /dev/null 2>&1; then
-  echo -e "${RED}[ERREUR] Docker n'est pas installé.${NC}"
+  printf "${RED}[ERREUR] Docker n'est pas installé.${NC}\n"
   exit 1
 fi
-echo -e "${GREEN}[OK] Docker${NC}"
+printf "${GREEN}[OK] Docker${NC}\n"
 
 if ! command -v mkcert > /dev/null 2>&1; then
-  echo -e "${RED}[ERREUR] mkcert n'est pas installé.${NC}"
-  echo -e "Installez-le via : https://github.com/FiloSottile/mkcert"
+  printf "${RED}[ERREUR] mkcert n'est pas installé.${NC}\n"
+  printf "Installez-le via : https://github.com/FiloSottile/mkcert\n"
   exit 1
 fi
-echo -e "${GREEN}[OK] mkcert${NC}"
+printf "${GREEN}[OK] mkcert${NC}\n"
 
 # -----------------------------------------------------------------------------
 # 2. Création du fichier .env si inexistant
 # -----------------------------------------------------------------------------
-echo -e "\n>> Vérification du fichier .env..."
+printf "\n>> Vérification du fichier .env...\n"
 
 if [ ! -f .env ]; then
   cp .env.example .env
-  echo -e "${GREEN}[OK] .env créé depuis .env.example${NC}"
-  echo -e "${YELLOW}[INFO] Pensez à modifier les valeurs dans .env avant de continuer.${NC}"
+  printf "${GREEN}[OK] .env créé depuis .env.example${NC}\n"
+  printf "${YELLOW}[INFO] Pensez à modifier les valeurs dans .env avant de continuer.${NC}\n"
 else
-  echo -e "${GREEN}[OK] .env existe déjà${NC}"
+  printf "${GREEN}[OK] .env existe déjà${NC}\n"
 fi
 
 # -----------------------------------------------------------------------------
 # 3. Génération des certificats TLS
 # -----------------------------------------------------------------------------
-echo -e "\n>> Génération des certificats TLS..."
+printf "\n>> Génération des certificats TLS...\n"
 
-if [ -f traefik/certs/app.localhost+5.pem ]; then
-  echo -e "${GREEN}[OK] Certificats déjà présents, génération ignorée${NC}"
+if [ -f traefik/certs/app.localhost+7.pem ]; then
+  printf "${GREEN}[OK] Certificats déjà présents, génération ignorée${NC}\n"
 else
   sh scripts/generate-certs.sh
 fi
@@ -64,13 +64,13 @@ fi
 # -----------------------------------------------------------------------------
 # 4. Lancement du stack Docker Compose
 # -----------------------------------------------------------------------------
-echo -e "\n>> Lancement du stack Docker Compose..."
+printf "\n>> Lancement du stack Docker Compose...\n"
 docker compose up -d --build --scale backend=2
 
-echo -e "\n${GREEN}=============================${NC}"
-echo -e "${GREEN}  Initialisation terminée !  ${NC}"
-echo -e "${GREEN}=============================${NC}"
-echo ""
+printf "\n${GREEN}=============================${NC}\n"
+printf "${GREEN}  Initialisation terminée !  ${NC}\n"
+printf "${GREEN}=============================${NC}\n"
+printf "\n"
 echo "Services disponibles :"
 echo "  https://app.localhost       → Frontend"
 echo "  https://api.localhost       → Backend API"
