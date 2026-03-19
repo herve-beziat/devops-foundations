@@ -385,3 +385,11 @@ Ce projet utilise **Gitflow** avec des branches protégées :
 - `docs/*` : documentation
 
 Les Pull Requests sont obligatoires pour merger vers `develop` et `main`.
+
+---
+
+## Bonus — Network Visualization with Scanopy
+
+Scanopy automatically scans your infrastructure and generates an interactive network diagram of all running containers and services.
+
+> Linux only — see [docs/scanopy.md](docs/scanopy.md) for setup instructions.
