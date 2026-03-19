@@ -8,16 +8,14 @@ services:
     privileged: true
     restart: unless-stopped
     environment:
-      SCANOPY_LOG_LEVEL: ${SCANOPY_LOG_LEVEL:-info}
-      SCANOPY_SERVER_URL: http://host.docker.internal:60072
-    healthcheck:
-      test: ["CMD-SHELL", "curl -f http://localhost:60073/api/health || exit 1"]
-      interval: 5s
-      timeout: 3s
-      retries: 15
+      - SCANOPY_SERVER_URL=http://localhost:60072
+      - SCANOPY_NETWORK_ID=84db8d55-2acc-4ef4-881f-8b0d18b6b7df
+      - SCANOPY_DAEMON_API_KEY=scp_d_UodVFBirXvidGDq9YiRLPERxsP4fG2rh
+      - SCANOPY_USER_ID=690a11ff-8ddf-4418-bab4-8887bbd706d0
+      - SCANOPY_NAME=scanopy-daemon-local-docker
+      - SCANOPY_MODE=daemon_poll
     volumes:
       - daemon-config:/root/.config/daemon
-      # Comment out the line below to disable docker discovery
       - /var/run/docker.sock:/var/run/docker.sock:ro
 
   postgres:
@@ -46,11 +44,9 @@ services:
       SCANOPY_DATABASE_URL: postgresql://postgres:${POSTGRES_PASSWORD:-password}@postgres:5432/scanopy
       SCANOPY_WEB_EXTERNAL_PATH: /app/static
       SCANOPY_PUBLIC_URL: ${SCANOPY_PUBLIC_URL:-http://localhost:60072}
-      SCANOPY_INTEGRATED_DAEMON_URL: http://host.docker.internal:60073
+      SCANOPY_INTEGRATED_DAEMON_URL: http://localhost:60073
     volumes:
       - ./data:/data
-    extra_hosts:
-      - "host.docker.internal:host-gateway"
     depends_on:
       postgres:
         condition: service_healthy
