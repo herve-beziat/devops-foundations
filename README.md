@@ -16,6 +16,7 @@ Stack DevOps prête pour la production avec Docker, Traefik et workflow Git prof
 | Monitoring | grafana:11.5.2 | https://monitor.localhost |
 | Metrics | prom/prometheus:v3.2.1 | — |
 | Containers metrics | cadvisor:v0.52.1 | — |
+| Security reports | nginx:alpine | Interne (trivy-reports) |
 | Auto-update | watchtower:1.7.1 | — |
 
 ---
@@ -205,6 +206,46 @@ Les rapports sont générés dans `docs/security/`.
 
 ---
 
+## Dashboard Grafana — Vulnérabilités Trivy
+
+Le dashboard **Trivy Security Reports** est accessible dans Grafana (`https://monitor.localhost`) et affiche les vulnérabilités détectées par Trivy sur les images backend et frontend.
+
+### Architecture
+
+```
+scan.sh → backend-scan.json / frontend-scan.json
+               ↓
+         trivy-reports (nginx)   ← sert les JSON via HTTP interne
+               ↓
+         Grafana + Infinity datasource
+               ↓
+         Dashboard Trivy Security Reports
+```
+
+Le service `trivy-reports` est un nginx interne (non exposé publiquement) qui sert les fichiers JSON de `docs/security/` via HTTP. Grafana les lit grâce au plugin **Infinity datasource**, qui permet de consommer n'importe quelle source HTTP.
+
+### Mettre à jour les données du dashboard
+
+Les données du dashboard correspondent au dernier scan Trivy effectué. Pour les rafraîchir :
+
+```bash
+sh scripts/scan.sh
+```
+
+Les nouveaux fichiers JSON sont immédiatement disponibles dans Grafana sans redémarrage — nginx les sert directement depuis le disque.
+
+### Pourquoi cette approche ?
+
+Nous avons exploré deux approches pour intégrer Trivy à Grafana :
+
+**Option A — Trivy + Prometheus (temps réel)**
+Cette approche nécessite un exporter Prometheus dédié qui scanne les images en continu et expose des métriques. La solution officielle d'Aqua Security (`trivy-operator`) est conçue pour **Kubernetes uniquement** et ne fonctionne pas avec Docker Compose. Des solutions communautaires existent (exporter Python custom avec Flask + prometheus_client) mais ajoutent une complexité de maintenance importante pour ce contexte.
+
+**Option B — Infinity datasource + JSON (retenu)**
+Grafana lit directement les rapports JSON générés par `scan.sh` via le plugin Infinity. C'est la solution adaptée à Docker Compose : simple, sans dépendance externe, et réutilise le travail déjà fait. La limite principale est que les données ne sont pas en temps réel — elles se mettent à jour uniquement quand `scan.sh` est relancé manuellement.
+
+---
+
 ## Démonstration du load balancing
 
 Le backend tourne avec 2 replicas. Pour vérifier la distribution du trafic :
@@ -389,10 +430,13 @@ docker swarm leave --force
 ## Structure du projet
 ```
 devops-foundations/
+├── README.md                       # Documentation du projet
+├── CONTRIBUTING.md                 # Guide de contribution et conventions Git
 ├── docker-compose.yml              # Configuration de base (développement)
 ├── docker-compose.override.yml     # Overrides développement
 ├── docker-compose.prod.yml         # Overrides production
 ├── docker-stack.yml                # Configuration Docker Swarm (bonus)
+├── docker-compose.scanopy.yml      # Stack Scanopy — visualisation réseau (Linux only)
 ├── .env.example                    # Variables d'environnement (exemple)
 ├── traefik/
 │   ├── traefik.yml                 # Configuration statique Traefik
@@ -403,9 +447,12 @@ devops-foundations/
 │   ├── prometheus.yml              # Configuration scrape Prometheus
 │   └── grafana/
 │       ├── provisioning/
-│       │   ├── datasources/        # Datasource Prometheus auto-provisionnée
+│       │   ├── datasources/        # Datasources auto-provisionnées (Prometheus + Infinity)
 │       │   └── dashboards/         # Configuration provisioning dashboards
 │       └── dashboards/             # Dashboards Grafana pré-configurés (JSON)
+│           ├── 14282_rev1.json     # Dashboard cAdvisor
+│           ├── 17346_rev9.json     # Dashboard Traefik
+│           └── trivy-dashboard.json # Dashboard vulnérabilités Trivy
 ├── src/
 │   ├── backend/                    # API Node.js/Express
 │   └── frontend/                   # App Vite + nginx
@@ -418,10 +465,11 @@ devops-foundations/
     ├── architecture-reseau.md      # Documentation architecture réseau
     ├── merge-vs-rebase.md          # Politique Git
     ├── image-size-comparison.md    # Comparaison taille des images Docker
+    ├── scanopy.md                  # Documentation utilisation Scanopy
     └── security/
         ├── vulnerability-report.md # Rapport de vulnérabilités Trivy
-        ├── backend-scan.json       # Scan image backend (brut)
-        └── frontend-scan.json      # Scan image frontend (brut)
+        ├── backend-scan.json       # Scan image backend (brut, servi par trivy-reports)
+        └── frontend-scan.json      # Scan image frontend (brut, servi par trivy-reports)
 ```
 
 ---
