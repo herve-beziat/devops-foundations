@@ -203,6 +203,19 @@ services:
       - "com.centurylinklabs.watchtower.enable=true"
     restart: unless-stopped
 
+  trivy-reports:
+    image: nginx:alpine
+    # Sert les rapports JSON de Trivy comme fichiers statiques via HTTP
+    # Grafana peut ainsi lire les fichiers via une URL HTTP
+    # car Grafana ne peut pas lire des fichiers directement sur le disque
+    volumes:
+      - ./docs/security:/usr/share/nginx/html:ro
+    networks:
+      - backend
+    labels:
+      - "com.centurylinklabs.watchtower.enable=false"
+    restart: unless-stopped
+
   grafana:
     image: grafana/grafana:11.5.2
     volumes:
@@ -226,6 +239,7 @@ services:
     environment:
       - GF_SECURITY_ADMIN_PASSWORD=admin
       - GF_USERS_ALLOW_SIGN_UP=false
+      - GF_INSTALL_PLUGINS=yesoreyeram-infinity-datasource
     restart: unless-stopped
   
   watchtower:

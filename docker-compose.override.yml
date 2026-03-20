@@ -56,3 +56,10 @@ services:
     ports:
       # Grafana UI directly accessible without going through the domain
       - "3001:3000"
+
+  trivy-reports:
+    # Fixed name in dev for easier debugging
+    container_name: devops_trivy_reports
+    ports:
+      # Trivy JSON reports directly accessible for local testing without going through the domain
+      - "8083:80"

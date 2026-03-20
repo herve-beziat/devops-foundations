@@ -1,0 +1,9 @@
+## Configuration de la datasource Infinity pour Grafana
+apiVersion: 1
+
+datasources:
+  - name: Infinity
+    type: yesoreyeram-infinity-datasource
+    access: proxy
+    isDefault: false
+    editable: true
