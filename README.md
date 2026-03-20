@@ -306,6 +306,58 @@ docker service update --image devops-foundations-backend:latest --force devops_b
 docker service scale devops_backend=3
 ```
 
+### Rolling Update & Automatic Rollback
+
+The backend is configured with zero downtime deployment and automatic rollback :
+```yaml
+deploy:
+  replicas: 2
+  update_config:
+    parallelism: 1      # Update 1 replica at a time
+    delay: 10s          # Wait 10s between each replica
+    failure_action: rollback  # Auto rollback if update fails
+    monitor: 30s        # Monitor each replica for 30s after update
+  rollback_config:
+    parallelism: 1
+    delay: 5s
+    failure_action: pause     # Pause if rollback itself fails
+    monitor: 30s
+```
+
+#### Demonstrate a rolling update (zero downtime)
+
+Start a continuous request loop in terminal 1 :
+```bash
+while true; do
+  response=$(curl -k -s https://api.localhost/whoami)
+  echo "$(date +%H:%M:%S) → $response"
+  sleep 1
+done
+```
+
+Trigger a rolling update in terminal 2 :
+```bash
+docker service update --image devops-foundations-backend:latest --force devops_backend
+```
+
+Expected result : the loop continues without interruption. You will see the hostname change as Swarm updates each replica one at a time.
+
+#### Demonstrate automatic rollback
+
+Deploy a broken image to trigger an automatic rollback :
+```bash
+docker service update --image devops-foundations-backend:broken devops_backend
+```
+
+Expected result :
+```
+overall progress: rolling back update: 2 out of 2 tasks
+rollback: update rolled back due to failure or early termination of task
+verify: Service devops_backend converged
+```
+
+Swarm automatically detects the failure and rolls back to the previous working version — no manual intervention required.
+
 ### Reset complet (démo depuis zéro)
 ```bash
 # 1. Arrêter le stack
