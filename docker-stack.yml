@@ -1,71 +1,102 @@
+version: "3.8"
+
 services:
   traefik:
     image: traefik:v3.0
     ports:
-      - "80:80"
-      - "443:443"
-    labels:
-      - "traefik.enable=true"
-      - "traefik.http.routers.traefik-http.rule=Host(`traefik.localhost`)"
-      - "traefik.http.routers.traefik-http.entrypoints=web"
-      - "traefik.http.routers.traefik-http.middlewares=https-redirect@file"
-      - "traefik.http.routers.traefik-secure.rule=Host(`traefik.localhost`)"
-      - "traefik.http.routers.traefik-secure.entrypoints=websecure"
-      - "traefik.http.routers.traefik-secure.tls=true"
-      - "traefik.http.routers.traefik-secure.service=api@internal"
-      - "traefik.http.routers.traefik-secure.middlewares=basic-auth@file"
-      - "com.centurylinklabs.watchtower.enable=true"
+      - target: 80
+        published: 80
+        protocol: tcp
+        mode: host
+      - target: 443
+        published: 443
+        protocol: tcp
+        mode: host
+    networks:
+      - frontend
+      - backend
+    deploy:
+      replicas: 1
+      placement:
+        constraints:
+          - node.role == manager
+      restart_policy:
+        condition: on-failure
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock:ro
       - ./traefik/traefik.yml:/etc/traefik/traefik.yml:ro
       - ./traefik/dynamic:/dynamic:ro
       - ./traefik/certs:/certs:ro
-    # Traefik est sur les deux réseaux car il route vers le frontend ET le backend
-    networks:
-      - frontend
-      - backend
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.traefik-secure.rule=Host(`traefik.localhost`)"
+      - "traefik.http.routers.traefik-secure.entrypoints=websecure"
+      - "traefik.http.routers.traefik-secure.tls=true"
+      - "traefik.http.routers.traefik-secure.service=api@internal"
 
   postgres:
     image: postgres:16-alpine
     environment:
-      POSTGRES_DB: ${POSTGRES_DB}
-      POSTGRES_USER: ${POSTGRES_USER}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB_FILE: /run/secrets/postgres_db
+      POSTGRES_USER_FILE: /run/secrets/postgres_user
+      POSTGRES_PASSWORD_FILE: /run/secrets/postgres_password
+    secrets:
+      - postgres_db
+      - postgres_user
+      - postgres_password
     volumes:
       - postgres_data:/var/lib/postgresql/data
-    # PostgreSQL est isolé sur le réseau backend uniquement
-    # Le frontend ne peut pas y accéder directement
     networks:
       - backend
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      test: ["CMD-SHELL", "pg_isready -U devops_user -d devops_db"]
       interval: 10s
       timeout: 5s
       retries: 5
+    deploy:
+      replicas: 1
+      placement:
+        constraints:
+          - node.role == manager
+      restart_policy:
+        condition: on-failure
     labels:
       - "com.centurylinklabs.watchtower.enable=false"
 
   redis:
     image: redis:7-alpine
-    # Redis est isolé sur le réseau backend uniquement
-    networks:
-      - backend
     volumes:
       - redis_data:/data
+    networks:
+      - backend
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 10s
       timeout: 3s
       retries: 5
+    deploy:
+      replicas: 1
+      placement:
+        constraints:
+          - node.role == manager
+      restart_policy:
+        condition: on-failure
     labels:
       - "com.centurylinklabs.watchtower.enable=false"
 
   mailhog:
     image: mailhog/mailhog:v1.0.1
-    # MailHog est sur le réseau backend car le backend l'utilise pour envoyer des emails
-    # Traefik y accède aussi pour exposer l'UI via mail.localhost
     networks:
       - backend
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:8025"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    deploy:
+      replicas: 1
+      restart_policy:
+        condition: on-failure
     labels:
       - "traefik.enable=true"
       - "traefik.http.routers.mailhog.rule=Host(`mail.localhost`)"
@@ -76,20 +107,15 @@ services:
       - "traefik.http.routers.mailhog-secure.tls=true"
       - "traefik.http.services.mailhog.loadbalancer.server.port=8025"
       - "com.centurylinklabs.watchtower.enable=true"
-    healthcheck:
-      test: ["CMD", "wget", "--spider", "-q", "http://localhost:8025"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
 
   adminer:
     image: adminer:4
-    depends_on:
-      - postgres
-    # Adminer est sur le réseau backend car il accède à PostgreSQL
-    # Traefik y accède aussi pour exposer l'UI via db.localhost
     networks:
       - backend
+    deploy:
+      replicas: 1
+      restart_policy:
+        condition: on-failure
     labels:
       - "traefik.enable=true"
       - "traefik.http.routers.adminer.rule=Host(`db.localhost`)"
@@ -103,25 +129,40 @@ services:
       - "com.centurylinklabs.watchtower.enable=true"
 
   backend:
-    build:
-      context: ./src/backend
-    # Le backend est sur le réseau backend uniquement
-    # Il communique avec postgres, redis, mailhog et Traefik
+    image: devops-foundations-backend:latest
     networks:
       - backend
     environment:
       PORT: 3000
       POSTGRES_HOST: postgres
       POSTGRES_PORT: 5432
-      POSTGRES_DB: ${POSTGRES_DB}
-      POSTGRES_USER: ${POSTGRES_USER}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB_FILE: /run/secrets/postgres_db
+      POSTGRES_USER_FILE: /run/secrets/postgres_user
+      POSTGRES_PASSWORD_FILE: /run/secrets/postgres_password
       REDIS_HOST: redis
       REDIS_PORT: 6379
       REDIS_KEY: devops:visits
       SMTP_HOST: mailhog
       SMTP_PORT: 1025
       MAIL_FROM: no-reply@devops.local
+    secrets:
+      - postgres_db
+      - postgres_user
+      - postgres_password
+    deploy:
+      replicas: 2
+      restart_policy:
+        condition: on-failure
+      update_config:
+        parallelism: 1
+        delay: 10s
+        failure_action: rollback
+        monitor: 30s
+      rollback_config:
+        parallelism: 1
+        delay: 5s
+        failure_action: pause
+        monitor: 30s
     labels:
       - "traefik.enable=true"
       - "traefik.http.routers.backend.rule=Host(`api.localhost`)"
@@ -133,18 +174,25 @@ services:
       - "traefik.http.services.backend.loadbalancer.server.port=3000"
       - "traefik.http.routers.backend-secure.middlewares=security-headers@file,gzip-compress@file,rate-limit@file"
       - "com.centurylinklabs.watchtower.enable=false"
-    depends_on:
-      - postgres
-      - redis
-      - mailhog
 
   frontend:
-    build:
-      context: ./src/frontend
-    # Le frontend est sur le réseau frontend uniquement
-    # Il ne peut pas accéder directement à postgres ou redis
+    image: devops-foundations-frontend:latest
     networks:
       - frontend
+    deploy:
+      replicas: 1
+      restart_policy:
+        condition: on-failure
+      update_config:
+        parallelism: 1
+        delay: 10s
+        failure_action: rollback
+        monitor: 30s
+      rollback_config:
+        parallelism: 1
+        delay: 5s
+        failure_action: pause
+        monitor: 30s
     labels:
       - "traefik.enable=true"
       - "traefik.http.routers.frontend.rule=Host(`app.localhost`)"
@@ -156,9 +204,7 @@ services:
       - "traefik.http.services.frontend.loadbalancer.server.port=8080"
       - "traefik.http.routers.frontend-secure.middlewares=security-headers@file,gzip-compress@file"
       - "com.centurylinklabs.watchtower.enable=false"
-    depends_on:
-      - backend
-  
+
   portainer:
     image: portainer/portainer-ce:2.39.0
     volumes:
@@ -166,6 +212,13 @@ services:
       - portainer_data:/data
     networks:
       - frontend
+    deploy:
+      replicas: 1
+      placement:
+        constraints:
+          - node.role == manager
+      restart_policy:
+        condition: on-failure
     labels:
       - "traefik.enable=true"
       - "traefik.http.routers.portainer.rule=Host(`portainer.localhost`)"
@@ -177,7 +230,6 @@ services:
       - "traefik.http.routers.portainer-secure.middlewares=security-headers@file"
       - "traefik.http.services.portainer.loadbalancer.server.port=9000"
       - "com.centurylinklabs.watchtower.enable=true"
-    restart: unless-stopped
 
   prometheus:
     image: prom/prometheus:v3.2.1
@@ -186,9 +238,15 @@ services:
       - prometheus_data:/prometheus
     networks:
       - backend
+    deploy:
+      replicas: 1
+      placement:
+        constraints:
+          - node.role == manager
+      restart_policy:
+        condition: on-failure
     labels:
       - "com.centurylinklabs.watchtower.enable=false"
-    restart: unless-stopped
 
   cadvisor:
     image: gcr.io/cadvisor/cadvisor:v0.52.1
@@ -199,22 +257,15 @@ services:
       - /var/lib/docker/:/var/lib/docker:ro
     networks:
       - backend
+    deploy:
+      replicas: 1
+      placement:
+        constraints:
+          - node.role == manager
+      restart_policy:
+        condition: on-failure
     labels:
       - "com.centurylinklabs.watchtower.enable=true"
-    restart: unless-stopped
-
-  trivy-reports:
-    image: nginx:alpine
-    # Sert les rapports JSON de Trivy comme fichiers statiques via HTTP
-    # Grafana peut ainsi lire les fichiers via une URL HTTP
-    # car Grafana ne peut pas lire des fichiers directement sur le disque
-    volumes:
-      - ./docs/security:/usr/share/nginx/html:ro
-    networks:
-      - backend
-    labels:
-      - "com.centurylinklabs.watchtower.enable=false"
-    restart: unless-stopped
 
   grafana:
     image: grafana/grafana:11.5.2
@@ -225,6 +276,16 @@ services:
     networks:
       - backend
       - frontend
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+      - GF_USERS_ALLOW_SIGN_UP=false
+    deploy:
+      replicas: 1
+      placement:
+        constraints:
+          - node.role == manager
+      restart_policy:
+        condition: on-failure
     labels:
       - "traefik.enable=true"
       - "traefik.http.routers.grafana.rule=Host(`monitor.localhost`)"
@@ -236,24 +297,27 @@ services:
       - "traefik.http.routers.grafana-secure.middlewares=security-headers@file"
       - "traefik.http.services.grafana.loadbalancer.server.port=3000"
       - "com.centurylinklabs.watchtower.enable=false"
-    environment:
-      - GF_SECURITY_ADMIN_PASSWORD=admin
-      - GF_USERS_ALLOW_SIGN_UP=false
-      - GF_INSTALL_PLUGINS=yesoreyeram-infinity-datasource
-    restart: unless-stopped
-  
+
   watchtower:
     image: containrrr/watchtower:1.7.1
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock:ro
+    networks:
+      - backend
     environment:
       - WATCHTOWER_CLEANUP=true
       - WATCHTOWER_SCHEDULE=0 0 4 * * *
       - WATCHTOWER_LABEL_ENABLE=true
-      - WATCHTOWER_NOTIFICATION_URL=${WATCHTOWER_NOTIFICATION_URL}
-    networks:
-      - backend
-    restart: unless-stopped
+      - WATCHTOWER_NOTIFICATION_URL=/run/secrets/watchtower_notification_url
+    secrets:
+      - watchtower_notification_url
+    deploy:
+      replicas: 1
+      placement:
+        constraints:
+          - node.role == manager
+      restart_policy:
+        condition: on-failure
 
 volumes:
   postgres_data:
@@ -263,10 +327,17 @@ volumes:
   prometheus_data:
 
 networks:
-  # Réseau exposé — contient Traefik et le Frontend
   frontend:
-    driver: bridge
-  # Réseau privé — contient le Backend, PostgreSQL, Redis, MailHog, Adminer
-  # Isolé du réseau frontend pour la sécurité
+    driver: overlay
   backend:
-    driver: bridge
+    driver: overlay
+
+secrets:
+  postgres_password:
+    external: true
+  postgres_user:
+    external: true
+  postgres_db:
+    external: true
+  watchtower_notification_url:
+    external: true

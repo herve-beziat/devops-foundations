@@ -16,6 +16,7 @@ Stack DevOps prête pour la production avec Docker, Traefik et workflow Git prof
 | Monitoring | grafana:11.5.2 | https://monitor.localhost |
 | Metrics | prom/prometheus:v3.2.1 | — |
 | Containers metrics | cadvisor:v0.52.1 | — |
+| Security reports | nginx:alpine | Interne (trivy-reports) |
 | Auto-update | watchtower:1.7.1 | — |
 
 ---
@@ -28,10 +29,12 @@ Stack DevOps prête pour la production avec Docker, Traefik et workflow Git prof
 
 ## Prérequis
 
-- [Docker Desktop](https://www.docker.com/products/docker-desktop/) v24+
+- [Docker Engine](https://docs.docker.com/engine/install/) v24+ avec le plugin Compose V2
 - [mkcert](https://github.com/FiloSottile/mkcert) pour les certificats TLS locaux
 - Git
-- Un terminal Unix (Git Bash sur Windows)
+- Un terminal Unix (Linux recommandé)
+
+> ⚠️ **Note** : certaines fonctionnalités comme Docker Swarm et `network_mode: host` nécessitent Linux. Docker Desktop sur Windows présente des limitations pour ces usages.
 
 ---
 
@@ -112,7 +115,7 @@ Voir `.env.example` pour les valeurs par défaut.
 
 ---
 
-## Commandes utiles
+## Commandes utiles — Docker Compose
 
 ### Démarrage
 ```bash
@@ -178,21 +181,21 @@ docker compose exec watchtower /watchtower --run-once
 sh scripts/scan.sh
 
 # Scanner uniquement l'image backend
-MSYS_NO_PATHCONV=1 docker run --rm \
-  -v //var/run/docker.sock:/var/run/docker.sock \
+docker run --rm \
+  -v /var/run/docker.sock:/var/run/docker.sock \
   aquasec/trivy image \
   --severity HIGH,CRITICAL \
   devops-foundations-backend
 
 # Scanner uniquement l'image frontend
-MSYS_NO_PATHCONV=1 docker run --rm \
-  -v //var/run/docker.sock:/var/run/docker.sock \
+docker run --rm \
+  -v /var/run/docker.sock:/var/run/docker.sock \
   aquasec/trivy image \
   --severity HIGH,CRITICAL \
   devops-foundations-frontend
 
 # Scanner le code source pour détecter des secrets
-MSYS_NO_PATHCONV=1 docker run --rm \
+docker run --rm \
   -v "$(pwd):/project" \
   aquasec/trivy fs \
   --scanners secret \
@@ -203,14 +206,50 @@ Les rapports sont générés dans `docs/security/`.
 
 ---
 
+## Dashboard Grafana — Vulnérabilités Trivy
+
+Le dashboard **Trivy Security Reports** est accessible dans Grafana (`https://monitor.localhost`) et affiche les vulnérabilités détectées par Trivy sur les images backend et frontend.
+
+### Architecture
+
+```
+scan.sh → backend-scan.json / frontend-scan.json
+               ↓
+         trivy-reports (nginx)   ← sert les JSON via HTTP interne
+               ↓
+         Grafana + Infinity datasource
+               ↓
+         Dashboard Trivy Security Reports
+```
+
+Le service `trivy-reports` est un nginx interne (non exposé publiquement) qui sert les fichiers JSON de `docs/security/` via HTTP. Grafana les lit grâce au plugin **Infinity datasource**, qui permet de consommer n'importe quelle source HTTP.
+
+### Mettre à jour les données du dashboard
+
+Les données du dashboard correspondent au dernier scan Trivy effectué. Pour les rafraîchir :
+
+```bash
+sh scripts/scan.sh
+```
+
+Les nouveaux fichiers JSON sont immédiatement disponibles dans Grafana sans redémarrage — nginx les sert directement depuis le disque.
+
+### Pourquoi cette approche ?
+
+Nous avons exploré deux approches pour intégrer Trivy à Grafana :
+
+**Option A — Trivy + Prometheus (temps réel)**
+Cette approche nécessite un exporter Prometheus dédié qui scanne les images en continu et expose des métriques. La solution officielle d'Aqua Security (`trivy-operator`) est conçue pour **Kubernetes uniquement** et ne fonctionne pas avec Docker Compose. Des solutions communautaires existent (exporter Python custom avec Flask + prometheus_client) mais ajoutent une complexité de maintenance importante pour ce contexte.
+
+**Option B — Infinity datasource + JSON (retenu)**
+Grafana lit directement les rapports JSON générés par `scan.sh` via le plugin Infinity. C'est la solution adaptée à Docker Compose : simple, sans dépendance externe, et réutilise le travail déjà fait. La limite principale est que les données ne sont pas en temps réel — elles se mettent à jour uniquement quand `scan.sh` est relancé manuellement.
+
+---
+
 ## Démonstration du load balancing
 
 Le backend tourne avec 2 replicas. Pour vérifier la distribution du trafic :
 ```bash
-# PowerShell
-for ($i = 1; $i -le 6; $i++) { $r = curl.exe -k -s https://api.localhost/whoami; Write-Host "$i : $r" }
-
-# Git Bash / Linux
 for i in $(seq 1 6); do curl -k -s https://api.localhost/whoami; echo; done
 ```
 
@@ -246,41 +285,191 @@ docker compose up -d --scale backend=2
 
 ---
 
+## Docker Swarm (bonus)
+
+Docker Swarm permet de déployer le stack en mode cluster avec haute disponibilité et zero downtime deployment.
+
+> ⚠️ **Prérequis** : Docker Swarm nécessite Linux. Non supporté sur Docker Desktop Windows.
+
+### Différences avec Docker Compose
+
+| | Docker Compose | Docker Swarm |
+|---|---|---|
+| Usage | Développement local | Production / cluster |
+| Fichier | `docker-compose.yml` | `docker-stack.yml` |
+| Commande | `docker compose up` | `docker stack deploy` |
+| Replicas | `--scale backend=2` | Défini dans le fichier |
+| Secrets | Variables `.env` | Docker Secrets chiffrés |
+| Réseau | `bridge` | `overlay` (multi-machines) |
+
+### Initialisation du Swarm
+```bash
+# Initialiser le node manager
+docker swarm init --advertise-addr <votre-ip-locale>
+
+# Vérifier l'état du swarm
+docker node ls
+```
+
+### Création des secrets
+
+Les secrets Docker Swarm sont chiffrés et jamais visibles en clair :
+```bash
+echo "devops_password" | docker secret create postgres_password -
+echo "devops_user" | docker secret create postgres_user -
+echo "devops_db" | docker secret create postgres_db -
+echo "discord://TOKEN@CHANNEL_ID" | docker secret create watchtower_notification_url -
+
+# Vérifier les secrets créés
+docker secret ls
+```
+
+### Déploiement
+```bash
+docker stack deploy -c docker-stack.yml devops
+```
+
+### Commandes utiles Swarm
+```bash
+# Statut des services
+docker stack services devops
+
+# Statut détaillé d'un service
+docker service ps devops_backend
+
+# Logs d'un service
+docker service logs devops_backend
+
+# Mettre à jour un service sans interruption (zero downtime)
+docker service update --image devops-foundations-backend:latest --force devops_backend
+
+# Scaler un service
+docker service scale devops_backend=3
+```
+
+### Rolling Update & Automatic Rollback
+
+The backend is configured with zero downtime deployment and automatic rollback :
+```yaml
+deploy:
+  replicas: 2
+  update_config:
+    parallelism: 1      # Update 1 replica at a time
+    delay: 10s          # Wait 10s between each replica
+    failure_action: rollback  # Auto rollback if update fails
+    monitor: 30s        # Monitor each replica for 30s after update
+  rollback_config:
+    parallelism: 1
+    delay: 5s
+    failure_action: pause     # Pause if rollback itself fails
+    monitor: 30s
+```
+
+#### Demonstrate a rolling update (zero downtime)
+
+Start a continuous request loop in terminal 1 :
+```bash
+while true; do
+  response=$(curl -k -s https://api.localhost/whoami)
+  echo "$(date +%H:%M:%S) → $response"
+  sleep 1
+done
+```
+
+Trigger a rolling update in terminal 2 :
+```bash
+docker service update --image devops-foundations-backend:latest --force devops_backend
+```
+
+Expected result : the loop continues without interruption. You will see the hostname change as Swarm updates each replica one at a time.
+
+#### Demonstrate automatic rollback
+
+Deploy a broken image to trigger an automatic rollback :
+```bash
+docker service update --image devops-foundations-backend:broken devops_backend
+```
+
+Expected result :
+```
+overall progress: rolling back update: 2 out of 2 tasks
+rollback: update rolled back due to failure or early termination of task
+verify: Service devops_backend converged
+```
+
+Swarm automatically detects the failure and rolls back to the previous working version — no manual intervention required.
+
+### Reset complet (démo depuis zéro)
+```bash
+# 1. Arrêter le stack
+docker stack rm devops
+
+# 2. Attendre l'arrêt complet
+sleep 5
+
+# 3. Supprimer les volumes
+docker volume rm devops_postgres_data devops_redis_data devops_grafana_data devops_portainer_data devops_prometheus_data
+
+# 4. Relancer
+docker stack deploy -c docker-stack.yml devops
+```
+
+### Arrêter le Swarm
+```bash
+# Supprimer le stack (conteneurs supprimés, volumes conservés)
+docker stack rm devops
+
+# Quitter le swarm complètement
+docker swarm leave --force
+```
+
+> 💡 **Note avancée** : Dans un vrai cluster multi-nodes, cAdvisor devrait tourner sur chaque node pour monitorer toutes les machines. On utiliserait alors `mode: global` au lieu de `replicas: 1` dans le `docker-stack.yml`.
+
+---
+
 ## Structure du projet
 ```
 devops-foundations/
-├── docker-compose.yml              # Base configuration
-├── docker-compose.override.yml     # Development overrides
-├── docker-compose.prod.yml         # Production overrides
-├── .env.example                    # Environment variables (example)
+├── README.md                       # Documentation du projet
+├── CONTRIBUTING.md                 # Guide de contribution et conventions Git
+├── docker-compose.yml              # Configuration de base (développement)
+├── docker-compose.override.yml     # Overrides développement
+├── docker-compose.prod.yml         # Overrides production
+├── docker-stack.yml                # Configuration Docker Swarm (bonus)
+├── docker-compose.scanopy.yml      # Stack Scanopy — visualisation réseau (Linux only)
+├── .env.example                    # Variables d'environnement (exemple)
 ├── traefik/
-│   ├── traefik.yml                 # Traefik static configuration
-│   ├── certs/                      # TLS certificates (not versioned)
+│   ├── traefik.yml                 # Configuration statique Traefik
+│   ├── certs/                      # Certificats TLS (non versionnés)
 │   └── dynamic/
-│       └── middlewares.yml         # Middlewares and TLS configuration
+│       └── middlewares.yml         # Middlewares et configuration TLS
 ├── monitoring/
-│   ├── prometheus.yml              # Prometheus scrape configuration
+│   ├── prometheus.yml              # Configuration scrape Prometheus
 │   └── grafana/
 │       ├── provisioning/
-│       │   ├── datasources/        # Auto-provisioned Prometheus datasource
-│       │   └── dashboards/         # Dashboards provisioning config
-│       └── dashboards/             # Pre-built Grafana dashboards (JSON)
+│       │   ├── datasources/        # Datasources auto-provisionnées (Prometheus + Infinity)
+│       │   └── dashboards/         # Configuration provisioning dashboards
+│       └── dashboards/             # Dashboards Grafana pré-configurés (JSON)
+│           ├── 14282_rev1.json     # Dashboard cAdvisor
+│           ├── 17346_rev9.json     # Dashboard Traefik
+│           └── trivy-dashboard.json # Dashboard vulnérabilités Trivy
 ├── src/
-│   ├── backend/                    # Node.js/Express API
-│   └── frontend/                   # Vite + nginx app
+│   ├── backend/                    # API Node.js/Express
+│   └── frontend/                   # App Vite + nginx
 ├── scripts/
-│   ├── init.sh                     # Project initialization
-│   ├── generate-certs.sh           # TLS certificates generation
-│   ├── seed-db.sh                  # Database seeding
-│   └── scan.sh                     # Trivy security scan
+│   ├── init.sh                     # Initialisation du projet
+│   ├── generate-certs.sh           # Génération des certificats TLS
+│   ├── seed-db.sh                  # Peuplement de la base de données
+│   └── scan.sh                     # Scan de sécurité Trivy
 └── docs/
-    ├── architecture-reseau.md      # Network architecture documentation
-    ├── merge-vs-rebase.md          # Git policy
-    ├── image-size-comparison.md    # Docker image size comparison
+    ├── architecture-reseau.md      # Documentation architecture réseau
+    ├── merge-vs-rebase.md          # Politique Git
+    ├── image-size-comparison.md    # Comparaison taille des images Docker
+    ├── scanopy.md                  # Documentation utilisation Scanopy
     └── security/
-        ├── vulnerability-report.md # Trivy vulnerability report
-        ├── backend-scan.json       # Backend image scan (raw)
-        └── frontend-scan.json      # Frontend image scan (raw)
+        ├── vulnerability-report.md # Rapport de vulnérabilités Trivy
+        ├── backend-scan.json       # Scan image backend (brut, servi par trivy-reports)
+        └── frontend-scan.json      # Scan image frontend (brut, servi par trivy-reports)
 ```
 
 ---
@@ -296,3 +485,11 @@ Ce projet utilise **Gitflow** avec des branches protégées :
 - `docs/*` : documentation
 
 Les Pull Requests sont obligatoires pour merger vers `develop` et `main`.
+
+---
+
+## Bonus — Network Visualization with Scanopy
+
+Scanopy automatically scans your infrastructure and generates an interactive network diagram of all running containers and services.
+
+> Linux only — see [docs/scanopy.md](docs/scanopy.md) for setup instructions.
